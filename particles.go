@@ -6,6 +6,11 @@ import (
 	"math/rand"
 )
 
+var (
+	initial = true
+	evolve  = false
+)
+
 func NewParticle(x, y float64, sigma float64) *Particle {
 	return &Particle{
 		InitialX: x,
@@ -64,7 +69,7 @@ func NewMu(sigma float64, n int, phi float64, deltaOverSigma float64, lx, ly flo
 			signy = -1.0
 		}
 		y := rand.Float64() * ly / 2 * signy
-		if mu.Accept(i, x, y) {
+		if mu.Accept(i, x, y, initial) {
 			mu.Particles = append(mu.Particles, NewParticle(x, y, sigma))
 		} else {
 			i--
@@ -92,7 +97,7 @@ func NewMuWithTrianglarLattice(sigma float64, n int, phi float64, deltaOverSigma
 		xIndex := rand.Intn(lx)
 		x := float64(xIndex) * sigma * 1.5
 		y := float64(rand.Intn(ly)+(xIndex%2)) * sigma * 1.5 * math.Sqrt(3) / 2
-		if mu.Accept(i, x, y) {
+		if mu.Accept(i, x, y, initial) {
 			mu.Particles = append(mu.Particles, NewParticle(x, y, sigma))
 		} else {
 			i--
@@ -124,7 +129,7 @@ func NewMuWithTrianglarLatticeAndWall(sigma float64, n int, phi float64, deltaOv
 			i--
 			continue
 		}
-		if mu.Accept(i, x, y) {
+		if mu.Accept(i, x, y, initial) {
 			mu.Particles = append(mu.Particles, NewParticle(x, y, sigma))
 		} else {
 			i--
@@ -163,7 +168,7 @@ func NewMuWithWall(sigma float64, n int, phi float64, deltaOverSigma float64, lx
 			i--
 			continue
 		}
-		if !mu.Collide(x, y) {
+		if mu.Accept(i, x, y, initial) {
 			mu.Particles = append(mu.Particles, NewParticle(x, y, sigma))
 		} else {
 			i--
@@ -215,7 +220,7 @@ func (mu *Mu) EvolveWithTriangle() {
 		xIndex := rand.Intn(int(mu.Lx))
 		xEvolved := float64(xIndex) * mu.Sigma * 1.5
 		yEvolved := float64(rand.Intn(int(mu.Ly))+(xIndex%2)) * mu.Sigma * 1.5 * math.Sqrt(3) / 2
-		if mu.Accept(index, xEvolved, yEvolved) {
+		if mu.Accept(index, xEvolved, yEvolved, evolve) {
 			mu.Accepted++
 			particle.X = xEvolved
 			particle.Y = yEvolved
@@ -230,7 +235,7 @@ func (mu *Mu) Evolve() {
 	for index, particle := range mu.Particles {
 		xEvolved := EvolveValue(particle.X, mu.Delta, mu.Lx)
 		yEvolved := EvolveValue(particle.Y, mu.Delta, mu.Ly)
-		if mu.Accept(index, xEvolved, yEvolved) {
+		if mu.Accept(index, xEvolved, yEvolved, evolve) {
 			mu.Accepted++
 			particle.X = xEvolved
 			particle.Y = yEvolved
@@ -245,7 +250,7 @@ func (mu *Mu) EvolveWithWall() {
 	for index, particle := range mu.Particles {
 		xEvolved := EvolveWithWall(particle.X, mu.Delta, mu.Lx)
 		yEvolved := EvolveWithWall(particle.Y, mu.Delta, mu.Ly)
-		if mu.Accept(index, xEvolved, yEvolved) {
+		if mu.Accept(index, xEvolved, yEvolved, evolve) {
 			mu.Accepted++
 			particle.X = xEvolved
 			particle.Y = yEvolved
@@ -315,7 +320,7 @@ func (mu *Mu) EvolveStepWithTriangle() {
 		// }
 
 		// Metropolis法による受け入れ判定
-		if mu.Accept(i, xNew, yNew) {
+		if mu.Accept(i, xNew, yNew, evolve) {
 			mu.Accepted++
 			mu.Particles[i].X = xNew
 			mu.Particles[i].Y = yNew
@@ -333,7 +338,8 @@ func Sign() float64 {
 }
 
 // accept the trial move or not as the system's energy
-func (mu *Mu) Accept(index int, xNew, yNew float64) bool {
+func (mu *Mu) Accept(index int, xNew, yNew float64, initial bool) bool {
+	g := mu.Gravity
 	for i, other := range mu.Particles {
 		if i == index {
 			// Skip the particle itself
@@ -342,6 +348,9 @@ func (mu *Mu) Accept(index int, xNew, yNew float64) bool {
 		acceptance := 0.0
 		if index > len(mu.Particles)-1 {
 			energy := U(mu.Sigma, other.X, other.Y, xNew, yNew, mu.M, mu.Gravity)
+			// if initial {
+			// 	energy = Uover(mu.Sigma, other.X, other.Y, xNew, yNew, mu.M, mu.Gravity)
+			// }
 			acceptance = Acceptance(math.Exp(-1 / mu.Kb / mu.T * energy))
 			if acceptance == 0 {
 				// Not Accept the trial move
@@ -350,11 +359,35 @@ func (mu *Mu) Accept(index int, xNew, yNew float64) bool {
 				continue
 			}
 		}
-		// Calculate the energy difference
-		dE := U(mu.Sigma, other.X, other.Y, xNew, yNew, mu.M, mu.Gravity) - U(mu.Sigma, other.X, other.Y, mu.Particles[index].X, mu.Particles[index].Y, mu.M, mu.Gravity)
-		acceptanceProb := math.Exp(-dE / (mu.Kb * mu.T))
-		if rand.Float64() >= acceptanceProb {
-			return false
+		if !initial {
+			// Calculate the energy difference
+			dE := U(mu.Sigma, other.X, other.Y, xNew, yNew, mu.M, g) - U(mu.Sigma, other.X, other.Y, mu.Particles[index].X, mu.Particles[index].Y, mu.M, g)
+			acceptanceProb := math.Exp(-dE / (mu.Kb * mu.T))
+			if rand.Float64() >= acceptanceProb {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// accept the trial move or not as the system's energy
+func (mu *Mu) AcceptInit(index int, xNew, yNew float64) bool {
+	for i, other := range mu.Particles {
+		if i == index {
+			// Skip the particle itself
+			continue
+		}
+		acceptance := 0.0
+		if index > len(mu.Particles)-1 {
+			energy := Uover(mu.Sigma, other.X, other.Y, xNew, yNew, mu.M, mu.Gravity)
+			acceptance = Acceptance(math.Exp(-1 / mu.Kb / mu.T * energy))
+			if acceptance == 0 {
+				// Not Accept the trial move
+				return false
+			} else {
+				continue
+			}
 		}
 	}
 	return true
@@ -404,6 +437,14 @@ func U(sigma, x1, y1, x2, y2 float64, m, g float64) float64 {
 	if r >= sigma {
 		return m * g * (y2 - y1)
 		// return 0
+	}
+	return math.Inf(1)
+}
+
+func Uover(sigma, x1, y1, x2, y2 float64, m, g float64) float64 {
+	r := math.Sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1))
+	if r >= sigma {
+		return 0
 	}
 	return math.Inf(1)
 }

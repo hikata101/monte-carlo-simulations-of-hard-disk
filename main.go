@@ -136,10 +136,10 @@ func problem3(w *sync.WaitGroup) {
 func problem7(w *sync.WaitGroup, t float64) {
 	defer w.Done()
 	ratio := 0.1
-	times := 100
+	times := 1000
 	particles := 1000
 	gravities := []float64{0, 0.01, 0.1, 1, 10}
-	// tempertures := []float64{0.1, 1, 10}
+	// gravities := []float64{10}
 	// tempertures := []float64{1}
 	// gravities := []float64{0.1}
 	// t := 1.0
@@ -149,6 +149,9 @@ func problem7(w *sync.WaitGroup, t float64) {
 	l := L(sigma, particles, phi)
 	var wg sync.WaitGroup
 	for _, gravity := range gravities {
+		if t == 0.1 && gravity == 10 {
+			continue
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
