@@ -163,7 +163,7 @@ func NewMuWithWall(sigma float64, n int, phi float64, deltaOverSigma float64, lx
 			i--
 			continue
 		}
-		if mu.Accept(i, x, y) {
+		if !mu.Collide(x, y) {
 			mu.Particles = append(mu.Particles, NewParticle(x, y, sigma))
 		} else {
 			i--
@@ -188,6 +188,16 @@ type Mu struct {
 	Kb        float64 // Boltzmann constant = 1
 	T         float64 // temperature
 	M         float64 // mass
+}
+
+func (m *Mu) Collide(x, y float64) bool {
+	for _, particle := range m.Particles {
+		distance := math.Sqrt((x-particle.X)*(x-particle.X) + (y-particle.Y)*(y-particle.Y))
+		if distance <= m.Sigma {
+			return true
+		}
+	}
+	return false
 }
 
 // Mean square displacement
@@ -392,8 +402,8 @@ func PoseWallWithTriangle(x, y, lx, ly float64) bool {
 func U(sigma, x1, y1, x2, y2 float64, m, g float64) float64 {
 	r := math.Sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1))
 	if r >= sigma {
-		// return m * g * (y2 - y1)
-		return 0
+		return m * g * (y2 - y1)
+		// return 0
 	}
 	return math.Inf(1)
 }

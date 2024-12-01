@@ -13,15 +13,14 @@ func main() {
 	// go problem1(&wg)
 	// wg.Add(1)
 	// go problem2(&wg)
+	// wg.Add(1)
+	// go problem3(&wg)
 	wg.Add(1)
-	go problem3(&wg)
-	// wg.Add(1)
-	// go problem4_2(&wg, 0.1, "output_test_01")
-	// wg.Add(1)
-	// go problem4_2(&wg, 1, "output_test_1")
-	// wg.Add(1)
-	// go problem4_2(&wg, 10, "output_test_10")
-
+	go problem7(&wg, 0.1)
+	wg.Add(1)
+	go problem7(&wg, 1)
+	wg.Add(1)
+	go problem7(&wg, 10)
 	wg.Wait()
 }
 
@@ -103,7 +102,7 @@ func problem2(w *sync.WaitGroup) {
 func problem3(w *sync.WaitGroup) {
 	defer w.Done()
 	ratio := 0.1
-	times := 1000
+	times := 100000
 	particles := 1000
 	gravities := []float64{0, 0.01, 0.1, 1, 10}
 	// gravities := []float64{0.1}
@@ -131,77 +130,34 @@ func problem3(w *sync.WaitGroup) {
 		"times": times,
 		"mus":   mus,
 	}
-	SavAsJson(output, "problem4/output_test1")
+	SavAsJson(output, "problem3/output_test")
 }
 
-func problem4_2(w *sync.WaitGroup, temp float64, filename string) {
-	defer w.Done()
-	ratio := 0.1
-	times := 1000
-	particles := 1000
-	gravities := []float64{0, 0.01, 0.1, 1, 10}
-	// gravities := []float64{0.1}
-	sigma := 1.0
-	mus := []*Mu{}
-	phi := 0.05
-	l := L(sigma, particles, phi)
-	// t := 1.0
-	var wg sync.WaitGroup
-	for _, gravity := range gravities {
-		mu := NewMuWithWall(sigma, particles, phi, ratio, l, l*10, gravity, temp)
-		mus = append(mus, mu)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer fmt.Printf("Finished temperture = %v, gravity = %f\n", temp, gravity)
-			for i := 0; i < times; i++ {
-				mu.EvolveWithWall()
-			}
-		}()
-	}
-	wg.Wait()
-
-	output := map[string]interface{}{
-		"times": times,
-		"mus":   mus,
-	}
-	SavAsJson(output, "problem4/"+filename)
-}
-
-func problem4(w *sync.WaitGroup) {
+func problem7(w *sync.WaitGroup, t float64) {
 	defer w.Done()
 	ratio := 0.1
 	times := 100
 	particles := 1000
 	gravities := []float64{0, 0.01, 0.1, 1, 10}
 	// tempertures := []float64{0.1, 1, 10}
-	tempertures := []float64{1}
+	// tempertures := []float64{1}
 	// gravities := []float64{0.1}
+	// t := 1.0
 	sigma := 1.0
-	mus := [][]*Mu{}
+	mus := []*Mu{}
 	phi := 0.05
 	l := L(sigma, particles, phi)
 	var wg sync.WaitGroup
-	for _, t := range tempertures {
+	for _, gravity := range gravities {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			mu_list := []*Mu{}
-			g_wg := sync.WaitGroup{}
-			for _, gravity := range gravities {
-				g_wg.Add(1)
-				go func() {
-					defer g_wg.Done()
-					defer fmt.Printf("Finished temp: %v, gravity = %f\n", t, gravity)
-					mu := NewMuWithWall(sigma, particles, phi, ratio, l, l*10, gravity, t)
-					for i := 0; i < times; i++ {
-						mu.EvolveWithWall()
-					}
-					mu_list = append(mu_list, mu)
-				}()
+			defer fmt.Printf("Finished temp: %v, gravity = %f\n", t, gravity)
+			mu := NewMuWithWall(sigma, particles, phi, ratio, l, l*10, gravity, t)
+			for i := 0; i < times; i++ {
+				mu.EvolveWithWall()
 			}
-			g_wg.Wait()
-			mus = append(mus, mu_list)
+			mus = append(mus, mu)
 		}()
 	}
 	wg.Wait()
@@ -210,7 +166,7 @@ func problem4(w *sync.WaitGroup) {
 		"times": times,
 		"mus":   mus,
 	}
-	SavAsJson(output, "problem4/output_test2")
+	SavAsJson(output, fmt.Sprintf("problem7/output_%v", t))
 }
 
 func SavAsJson(output interface{}, filename string) {
@@ -227,4 +183,5 @@ func SavAsJson(output interface{}, filename string) {
 		fmt.Println("Error encoding JSON:", err)
 		return
 	}
+	fmt.Printf("a file %v saved\n", filename)
 }
