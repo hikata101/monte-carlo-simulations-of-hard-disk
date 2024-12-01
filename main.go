@@ -136,7 +136,7 @@ func problem3(w *sync.WaitGroup) {
 func problem7(w *sync.WaitGroup, t float64) {
 	defer w.Done()
 	ratio := 0.1
-	times := 1000
+	times := 100000
 	particles := 1000
 	gravities := []float64{0, 0.01, 0.1, 1, 10}
 	// gravities := []float64{10}
